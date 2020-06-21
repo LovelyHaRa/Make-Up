@@ -179,26 +179,29 @@ export const searchDocument = async (ctx, next) => {
   if (query === undefined) {
     query = '';
   }
-  let sortObj = { updateDate: -1 };
-  if (oldest && oldest === 'true') {
-    sortObj.updateDate = 1;
-  }
+  let sortObj = {};
   if (shortest && shortest === 'true') {
     sortObj.documentLength = 1;
-    delete sortObj.updateDate;
   } else if (longest && longest === 'true') {
     sortObj.documentLength = -1;
-    delete sortObj.updateDate;
+  }
+  if (oldest && oldest === 'true') {
+    sortObj.updateDate = 1;
+  } else {
+    sortObj.updateDate = -1;
   }
   try {
-    const documentList = await WikiTitle.find({
-      name: { $regex: '.*' + query + '.*' },
+    const queryObj = {
+      name: { $regex: '.*' + query + '.*', $options: 'i' },
       lately: { $gt: 0 },
-    })
+    };
+    const documentList = await WikiTitle.find(queryObj)
       .sort(sortObj)
       .skip((page - 1) * block)
       .limit(block)
       .lean();
+    const documentCount = await WikiTitle.countDocuments(queryObj);
+    ctx.set('Makeuphara-Wiki-Last-Page', Math.ceil(documentCount / block));
     ctx.body = documentList;
     const reqUrl = ctx.request.url;
     const isNext = reqUrl.indexOf('/direct');
